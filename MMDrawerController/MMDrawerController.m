@@ -162,7 +162,7 @@ static NSString *MMDrawerOpenSideKey = @"MMDrawerOpenSide";
 
 -(instancetype)initWithCenterViewController:(UIViewController *)centerViewController leftDrawerViewController:(UIViewController *)leftDrawerViewController rightDrawerViewController:(UIViewController *)rightDrawerViewController{
     NSParameterAssert(centerViewController);
-    self = [self init];
+    self = [super init];
     if(self){
         [self setCenterViewController:centerViewController];
         [self setLeftDrawerViewController:leftDrawerViewController];
@@ -455,7 +455,21 @@ static NSString *MMDrawerOpenSideKey = @"MMDrawerOpenSide";
     }
   
     BOOL forwardAppearanceMethodsToCenterViewController = ([self.centerViewController isEqual:newCenterViewController] == NO);
+
+    UIViewController * oldCenterViewController = self.centerViewController;
+    // This is related to issue 363 (https://github.com/novkostya/MMDrawerController/pull/363)
+    // This needs to be refactored so the appearance logic is easier
+    // to follow across the multiple close/setter methods
+    if (animated && forwardAppearanceMethodsToCenterViewController) {
+        [oldCenterViewController beginAppearanceTransition:NO animated:NO];
+    }
+    
     [self setCenterViewController:newCenterViewController animated:animated];
+    
+    // Related to note above.
+    if (animated && forwardAppearanceMethodsToCenterViewController) {
+        [oldCenterViewController endAppearanceTransition];
+    }
     
     if(animated){
         [self updateDrawerVisualStateForDrawerSide:self.openSide percentVisible:1.0];
@@ -622,7 +636,7 @@ static NSString *MMDrawerOpenSideKey = @"MMDrawerOpenSide";
 #pragma mark - Bounce Methods
 -(void)bouncePreviewForDrawerSide:(MMDrawerSide)drawerSide completion:(void(^)(BOOL finished))completion{
     NSParameterAssert(drawerSide!=MMDrawerSideNone);
-    [self bouncePreviewForDrawerSide:drawerSide distance:MMDrawerDefaultBounceDistance completion:nil];
+    [self bouncePreviewForDrawerSide:drawerSide distance:MMDrawerDefaultBounceDistance completion:completion];
 }
 
 -(void)bouncePreviewForDrawerSide:(MMDrawerSide)drawerSide distance:(CGFloat)distance completion:(void(^)(BOOL finished))completion{
@@ -800,7 +814,7 @@ static NSString *MMDrawerOpenSideKey = @"MMDrawerOpenSide";
     }
 }
 
--(BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation{
+-(BOOL)shouldAutorotate{
     return YES;
 }
 
@@ -927,26 +941,19 @@ static NSString *MMDrawerOpenSideKey = @"MMDrawerOpenSide";
 }
 
 -(void)setShowsStatusBarBackgroundView:(BOOL)showsDummyStatusBar{
-    NSArray *sysVersion = [[UIDevice currentDevice].systemVersion componentsSeparatedByString:@"."];
-    float majorVersion = [[sysVersion objectAtIndex:0] floatValue];
-    if (majorVersion >= 7){
-        if(showsDummyStatusBar!=_showsStatusBarBackgroundView){
-            _showsStatusBarBackgroundView = showsDummyStatusBar;
-            CGRect frame = self.childControllerContainerView.frame;
-            if(_showsStatusBarBackgroundView){
-                frame.origin.y = 20;
-                frame.size.height = CGRectGetHeight(self.view.bounds)-20;
-            }
-            else {
-                frame.origin.y = 0;
-                frame.size.height = CGRectGetHeight(self.view.bounds);
-            }
-            [self.childControllerContainerView setFrame:frame];
-            [self.dummyStatusBarView setHidden:!showsDummyStatusBar];
+    if(showsDummyStatusBar!=_showsStatusBarBackgroundView){
+        _showsStatusBarBackgroundView = showsDummyStatusBar;
+        CGRect frame = self.childControllerContainerView.frame;
+        if(_showsStatusBarBackgroundView){
+            frame.origin.y = 20;
+            frame.size.height = CGRectGetHeight(self.view.bounds)-20;
         }
-    }
-    else {
-        _showsStatusBarBackgroundView = NO;
+        else {
+            frame.origin.y = 0;
+            frame.size.height = CGRectGetHeight(self.view.bounds);
+        }
+        [self.childControllerContainerView setFrame:frame];
+        [self.dummyStatusBarView setHidden:!showsDummyStatusBar];
     }
 }
 
